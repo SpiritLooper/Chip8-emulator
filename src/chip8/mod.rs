@@ -1,3 +1,4 @@
-mod cpu;
-pub mod gpu;
-pub mod chip8;
+pub mod cpu;
+pub mod rom;
+mod font;
+mod gpu;

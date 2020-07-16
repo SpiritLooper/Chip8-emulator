@@ -1,9 +1,14 @@
-mod chip8;
+pub mod chip8;
 
-use chip8::chip8::*;
+use chip8::cpu::* ;
+use chip8::rom::* ;
 
 fn main() {
-       let mut chip8 = Chip8::new();
-       chip8.init();
-       chip8.run();
+       let args : Vec<String> = std::env::args().collect();
+
+       let rom = Rom::new(&args[1]);
+
+       let mut cpu = CPU::new();
+       cpu.load(&rom);
+       cpu.run();
 }

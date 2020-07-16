@@ -1,4 +1,6 @@
 use crate::chip8::gpu::*;
+use super::font::FONT_SET;
+use super::rom::Rom ;
 use rand::Rng;
 
 const SIZE : usize = 4096;
@@ -59,11 +61,29 @@ impl CPU {
 
     pub fn run(&mut self) {
         while self.gpu.must_continue() {
+            let opcode = self.get_opcode();
+            self.run_opcode(opcode);
             self.gpu.update_screen();
         }
     }
 
-    pub fn init(&mut self) {
+    pub fn load(&mut self, rom : &Rom) {
+        // Load font 
+        for i in 0 .. FONT_SET.len() {
+            self.memory[i] = FONT_SET[i];
+        }
+
+        // Load ROM
+        for ( i , &byte ) in rom.data.iter().enumerate() {
+            let addr = 0x200 + i;
+            if addr < SIZE {
+                self.memory[addr] = byte;
+            } else {
+                break;
+            }
+        }
+
+        //Clear screen
         self.gpu.clear_screen();
     }
 
@@ -176,7 +196,10 @@ impl CPU {
             // FX1E
             (0xf, _, 0x1, 0xe) => unimplemented!("FX1E") ,
             // FX29
-            (0xf, _, 0x2, 0x9) => unimplemented!("FX29") ,
+            (0xf, _, 0x2, 0x9) => {
+                self.i = 5 * self.v[x] as usize;
+                OpCodeNext::Next
+            } ,
             // FX33
             (0xf, _, 0x3, 0x3) => {
                 self.memory[self.i] = self.v[x] / 100;
