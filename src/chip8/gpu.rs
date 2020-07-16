@@ -54,10 +54,11 @@ impl GPU {
     }
 
     pub fn must_continue(&self) -> bool {
-        self.window.is_open() 
+        self.window.is_open() && !self.window.is_key_down(Key::Escape)
     }
 
     pub fn get_color(&self, pos : (usize, usize)) -> u32 {
-        self.buffer[ pos.0 * PIXEL_SIZE + pos.1 * WIDTH ]
+        let index =  pos.0 * PIXEL_SIZE +  pos.1 * WIDTH * PIXEL_SIZE ;
+        self.buffer[ index ]
     }
 } 

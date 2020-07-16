@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": [],
+            "args": ["roms/GAMES/TEST/C8PIC.ch8"],
             "cwd": "${workspaceFolder}"
         },
         {

@@ -31,7 +31,8 @@ pub struct CPU {
     pc : usize,
     count_game : u8,
     count_sound : u8,
-    gpu : GPU
+    gpu : GPU,
+    gpu_change : bool
 }
 
 impl CPU {
@@ -45,7 +46,8 @@ impl CPU {
             count_game : 0,
             count_sound : 0,
             pc : BEGIN_ADDR,
-            gpu : GPU::new()
+            gpu : GPU::new(),
+            gpu_change : false
         }
     }
 
@@ -61,9 +63,14 @@ impl CPU {
 
     pub fn run(&mut self) {
         while self.gpu.must_continue() {
-            let opcode = self.get_opcode();
-            self.run_opcode(opcode);
-            self.gpu.update_screen();
+           for _ in 0 .. 4 {
+              self.run_opcode(self.get_opcode());
+           }
+           if self.gpu_change {
+               self.gpu.update_screen();
+               self.gpu_change = false;
+           }
+           self.step_count();
         }
     }
 
@@ -100,10 +107,10 @@ impl CPU {
         );
 
         let nnn = ( opcode & 0x0FFF ) as usize; 
-        let nn = ( opcode & 0x00FF ) as usize;
-        let n = ( opcode & 0x000F ) as usize; 
-        let x = ( opcode & 0x0F00 ) as usize; 
-        let y = ( opcode & 0x00F0 ) as usize;
+        let nn = ( opcode & 0x00FF ) as u8;
+        let n = mask.3 as usize; 
+        let x = mask.1 as usize; 
+        let y = mask.2 as usize;
         
         let next_opcode = match mask {
             // 00E0
@@ -126,15 +133,20 @@ impl CPU {
                 OpCodeNext::Jump(nnn)
             } ,
             // 3XNN
-            (0x3, _, _, _) => OpCodeNext::skip_if( self.v[x] == nn as u8 ) ,
+            (0x3, _, _, _) => OpCodeNext::skip_if( self.v[x] == nn ) ,
             // 4XNN
-            (0x4, _, _, _) => OpCodeNext::skip_if( self.v[x] != nn as u8 ) ,
+            (0x4, _, _, _) => OpCodeNext::skip_if( self.v[x] != nn ) ,
             // 5XY0
-            (0x5, _, _, 0x0) => OpCodeNext::skip_if( self.v[x] == self.v[y] as u8 ) ,
+            (0x5, _, _, 0x0) => OpCodeNext::skip_if( self.v[x] == self.v[y] ) ,
             // 6XNN
-            (0x6, _, _, _) => { self.v[x] = nn as u8 ; OpCodeNext::Next } ,
+            (0x6, _, _, _) => { self.v[x] = nn ; OpCodeNext::Next } ,
             // 7XNN
-            (0x7, _, _, _) => { self.v[x] += nn as u8 ; OpCodeNext::Next } ,
+            (0x7, _, _, _) => { 
+                let vx = self.v[x] as u16;
+                let val = nn as u16;
+                let result = vx + val;
+                self.v[x] = result as u8;
+                OpCodeNext::Next } ,
             // 8XY0
             (0x8, _, _, 0x0) => {
                 self.v[x] = self.v[y];
@@ -152,7 +164,7 @@ impl CPU {
                 let vy = self.v[y] as u16;
                 let result = vx + vy;
                 self.v[x] = result as u8;
-                self.v[0x0f] = if result > 0xFF { 1 } else { 0 };
+                self.v[0xf] = if result > 0xff { 1 } else { 0 };
                 OpCodeNext::Next
             } ,
             // 8XY5
@@ -161,8 +173,8 @@ impl CPU {
                 self.v[x] = self.v[x].wrapping_sub(self.v[y]);
                 OpCodeNext::Next
             } ,
-            // 8XY6
-            (0x8, _, _, 0x6) => {
+            // 8X06
+            (0x8, _, 0x0, 0x6) => {
                 self.v[0xf] = self.v[x] & 0x1;
                 self.v[x] >>= 1;
                 OpCodeNext::Next
@@ -253,16 +265,18 @@ impl CPU {
             let y = ( self.v[y] as usize + byte ) % H_CHIP8;
             for bit in 0 .. 8 {
                 let x = (self.v[x] as usize + bit ) % W_CHIP8;
-                let val_bit = self.memory[self.i + byte] >> (7 - bit) & 1;
+                let val_bit = (self.memory[self.i + byte] >> (7 - bit)) & 1;
                 if val_bit != 0 {
                     let mut color = WHITE;
                     if self.gpu.get_color((x,y)) == WHITE {
                         color = BLACK;
+                        self.v[0xf]=1;
                     }
                     self.gpu.draw_pixel( (x,y), color );
                 }
             }
         }
+        self.gpu_change = true;
         OpCodeNext::Next
     }
 } 
