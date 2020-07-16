@@ -1,7 +1,7 @@
 const SIZE : usize = 4096;
 const BEGIN_ADDR : u16 = 512;
 
-struct CPU {
+pub struct CPU {
     memory : [ u8 ; SIZE ],
     v : [ u8 ; 16 ],
     i : u16, 
