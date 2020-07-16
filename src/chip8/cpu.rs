@@ -116,7 +116,7 @@ impl CPU {
                 OpCodeNext::Jump(self.stack[self.sp])
             } ,
             // 0NNN
-            (0x0, _, _, _) => unimplemented!("RCA Program") ,
+            (0x0, _, _, _) => panic!("RCA Program") ,
             // 1NNN
             (0x1, _, _, _) => OpCodeNext::Jump(nnn) ,
             // 2NNN
@@ -128,24 +128,24 @@ impl CPU {
             // 3XNN
             (0x3, _, _, _) => OpCodeNext::skip_if( self.v[x] == nn as u8 ) ,
             // 4XNN
-            (0x4, _, _, _) => unimplemented!("4XNN") ,
+            (0x4, _, _, _) => OpCodeNext::skip_if( self.v[x] != nn as u8 ) ,
             // 5XY0
-            (0x5, _, _, 0x0) => unimplemented!("5XY0") ,
+            (0x5, _, _, 0x0) => OpCodeNext::skip_if( self.v[x] == self.v[y] as u8 ) ,
             // 6XNN
-            (0x6, _, _, _) => unimplemented!("6XNN") ,
+            (0x6, _, _, _) => { self.v[x] = nn as u8 ; OpCodeNext::Next } ,
             // 7XNN
-            (0x7, _, _, _) => unimplemented!("7XNN") ,
+            (0x7, _, _, _) => { self.v[x] += nn as u8 ; OpCodeNext::Next } ,
             // 8XY0
             (0x8, _, _, 0x0) => {
                 self.v[x] = self.v[y];
                 OpCodeNext::Next
             } ,
             // 8XY1
-            (0x8, _, _, 0x1) => unimplemented!("8XY1") ,
+            (0x8, _, _, 0x1) => { self.v[x] |= self.v[y] ; OpCodeNext::Next } ,
             // 8XY2
-            (0x8, _, _, 0x2) => unimplemented!("8XY2") ,
+            (0x8, _, _, 0x2) => { self.v[x] &= self.v[y] ; OpCodeNext::Next } ,
             // 8XY3
-            (0x8, _, _, 0x3) => unimplemented!("8XY3") ,
+            (0x8, _, _, 0x3) => { self.v[x] ^= self.v[y] ; OpCodeNext::Next } ,
             // 8XY4
             (0x8, _, _, 0x4) => {
                 let vx = self.v[x] as u16;
@@ -156,9 +156,17 @@ impl CPU {
                 OpCodeNext::Next
             } ,
             // 8XY5
-            (0x8, _, _, 0x5) => unimplemented!("8XY5") ,
+            (0x8, _, _, 0x5) => {  
+                self.v[0xf] = if self.v[x] > self.v[y] { 1 } else { 0 };
+                self.v[x] = self.v[x].wrapping_sub(self.v[y]);
+                OpCodeNext::Next
+            } ,
             // 8XY6
-            (0x8, _, _, 0x6) => unimplemented!("8XY6") ,
+            (0x8, _, _, 0x6) => {
+                self.v[0xf] = self.v[x] & 0x1;
+                self.v[x] >>= 1;
+                OpCodeNext::Next
+            } ,
             // 8XY7
             (0x8, _, _, 0x7) => {
                 self.v[0xf] = if self.v[y] > self.v[x] { 1 } else { 0 };
@@ -166,13 +174,17 @@ impl CPU {
                 OpCodeNext::Next
             } ,
             // 8XYE
-            (0x8, _, _, 0xe) => unimplemented!("8XYE") ,
+            (0x8, _, _, 0xe) => { 
+                self.v[0xf] = ( self.v[x] & 0b1000_0000 ) >> 7;
+                self.v[x] <<= 1;
+                OpCodeNext::Next
+            } ,
             // 9XY0
-            (0x9, _, _, 0x0) => unimplemented!("9XY0") ,
+            (0x9, _, _, 0x0) =>  OpCodeNext::skip_if(self.v[x] != self.v[y]),
             // ANNN
-            (0xa, _, _, _) => unimplemented!("ANNN") ,
+            (0xa, _, _, _) => { self.i = nnn ; OpCodeNext::Next },
             // BNNN
-            (0xb, _, _, _) => unimplemented!("BNNN") ,
+            (0xb, _, _, _) => OpCodeNext::Jump(nnn + self.v[0x0] as usize),
             // CXNN
             (0xc, _, _, _) => {
                 let mut rng = rand::thread_rng();
@@ -186,15 +198,19 @@ impl CPU {
             // EXA1
             (0xe, _, 0xa, 0x1) => unimplemented!("EXA1") ,
             // FX07
-            (0xf, _, 0x0, 0x7) => unimplemented!("FX07") ,
+            (0xf, _, 0x0, 0x7) => { self.v[x] = self.count_game ; OpCodeNext::Next } ,
             // FX0A
             (0xf, _, 0x0, 0xa) => unimplemented!("FX0A") ,
             // FX15
-            (0xf, _, 0x1, 0x5) => unimplemented!("FX15") ,
+            (0xf, _, 0x1, 0x5) => { self.count_game = self.v[x] ; OpCodeNext::Next } ,
             // FX18
-            (0xf, _, 0x1, 0x8) => unimplemented!("FX18") ,
+            (0xf, _, 0x1, 0x8) => { self.count_sound = self.v[x] ; OpCodeNext::Next } ,
             // FX1E
-            (0xf, _, 0x1, 0xe) => unimplemented!("FX1E") ,
+            (0xf, _, 0x1, 0xe) => {
+                self.i += self.v[x] as usize;
+                self.v[0xf] = if self.i > 0xf00 { 1 } else { 0 };
+                OpCodeNext::Next
+            } ,
             // FX29
             (0xf, _, 0x2, 0x9) => {
                 self.i = 5 * self.v[x] as usize;
@@ -208,9 +224,19 @@ impl CPU {
                 OpCodeNext::Next
             },
             // FX55
-            (0xf, _, 0x5, 0x5) => unimplemented!("FX55") ,
+            (0xf, _, 0x5, 0x5) => {
+                for i in 0 .. x + 1 {
+                    self.memory[self.i + i] = self.v[i];
+                }
+                OpCodeNext::Next
+            } ,
             // FX65
-            (0xf, _, 0x6, 0x5) => unimplemented!("FX65") ,
+            (0xf, _, 0x6, 0x5) => {
+                for i in 0 .. x + 1 {
+                    self.v[i] = self.memory[self.i + i];
+                }
+                OpCodeNext::Next
+            } ,
             _ => panic!()
         };
 
