@@ -1,15 +1,34 @@
+use crate::chip8::gpu::*;
+
 const SIZE : usize = 4096;
 const BEGIN_ADDR : usize = 512;
+
+enum OpCodeNext {
+    Next,
+    Skip,
+    Jump(usize)
+}
+
+impl OpCodeNext {
+    fn skip_if(condition : bool) -> OpCodeNext {
+        if condition {
+            OpCodeNext::Skip
+        } else {
+            OpCodeNext::Next
+        }
+    }
+}
 
 pub struct CPU {
     memory : [ u8 ; SIZE ],
     v : [ u8 ; 16 ],
-    i : u16, 
-    jump : [ u16 ; 16 ],
-    nb_jump : u8,
+    i : usize, 
+    stack : [ u16 ; 16 ],
+    sp : u8,
+    pc : usize,
     count_game : u8,
     count_sound : u8,
-    pc : usize
+    gpu : GPU
 }
 
 impl CPU {
@@ -17,12 +36,13 @@ impl CPU {
         CPU {
             memory : [ 0u8 ; SIZE ],
             v : [ 0u8 ; 16 ],
-            i : 0u16, 
-            jump : [ 0u16 ; 16 ],
-            nb_jump : 0,
+            i : 0, 
+            stack : [ 0u16 ; 16 ],
+            sp : 0,
             count_game : 0,
             count_sound : 0,
-            pc : BEGIN_ADDR 
+            pc : BEGIN_ADDR,
+            gpu : GPU::new()
         }
     }
 
@@ -34,6 +54,16 @@ impl CPU {
         if self.count_sound > 0 {
             self.count_sound -= 1;
         }
+    }
+
+    pub fn run(&mut self) {
+        while self.gpu.must_continue() {
+            self.gpu.update_screen();
+        }
+    }
+
+    pub fn init(&mut self) {
+        self.gpu.clear_screen();
     }
 
     pub fn get_opcode(&self) -> u16 {
@@ -50,11 +80,11 @@ impl CPU {
 
         let nnn = opcode & 0x0FFF; 
         let nn = opcode & 0x00FF; 
-        let n = opcode & 0x000F; 
-        let x = opcode & 0x0F00; 
-        let y = opcode & 0x00F0;
+        let n = ( opcode & 0x000F ) as usize; 
+        let x = ( opcode & 0x0F00 ) as usize; 
+        let y = ( opcode & 0x00F0 ) as usize;
         
-        let pc_change = match mask {
+        let next_opcode = match mask {
             // 00E0
             (0x0, 0x0, 0xe, 0x0) => unimplemented!("00E0") ,
             // 00EE
@@ -102,7 +132,7 @@ impl CPU {
             // CXNN
             (0xc, _, _, _) => unimplemented!("CXNN") ,
             // DXYN
-            (0xd, _, _, _) => unimplemented!("DXYN") ,
+            (0xd, _, _, _) => self.draw_sprite(x, y, n) ,
             // EX9E
             (0xe, _, 0x9, 0xe) => unimplemented!("EX9E") ,
             // EXA1
@@ -127,5 +157,30 @@ impl CPU {
             (0xf, _, 0x6, 0x5) => unimplemented!("FX65") ,
             _ => panic!()
         };
+
+        match next_opcode {
+            OpCodeNext::Next => self.pc += 2,
+            OpCodeNext::Skip => self.pc += 2 * 2,
+            OpCodeNext::Jump(addr) => self.pc = addr
+        }
+    }
+
+    fn draw_sprite(&mut self, x : usize, y : usize , n : usize  ) -> OpCodeNext {
+        self.v[0xf] = 0;
+        for byte in 0 .. n {
+            let y = ( self.v[y] as usize + byte ) % H_CHIP8;
+            for bit in 0 .. 8 {
+                let x = (self.v[x] as usize + bit ) % W_CHIP8;
+                let val_bit = self.memory[self.i + byte] >> (7 - bit) & 1;
+                if val_bit != 0 {
+                    let mut color = WHITE;
+                    if self.gpu.get_color((x,y)) == WHITE {
+                        color = BLACK;
+                    }
+                    self.gpu.draw_pixel( (x,y), color );
+                }
+            }
+        }
+        OpCodeNext::Next
     }
 } 

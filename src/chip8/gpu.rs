@@ -4,8 +4,8 @@ use minifb::{Key, Window, WindowOptions};
 
 const FPS_RATE : u64 = 16;
 
-const W_CHIP8 : usize = 64;
-const H_CHIP8 : usize= 32;
+pub const W_CHIP8 : usize = 64;
+pub const H_CHIP8 : usize= 32;
 const PIXEL_SIZE : usize = 10;
 
 const WIDTH : usize = W_CHIP8 * PIXEL_SIZE;
@@ -55,5 +55,9 @@ impl GPU {
 
     pub fn must_continue(&self) -> bool {
         self.window.is_open() 
+    }
+
+    pub fn get_color(&self, pos : (usize, usize)) -> u32 {
+        self.buffer[ pos.0 * PIXEL_SIZE + pos.1 * WIDTH ]
     }
 } 
