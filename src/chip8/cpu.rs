@@ -200,7 +200,7 @@ impl CPU {
             // CXNN
             (0xc, _, _, _) => {
                 let mut rng = rand::thread_rng();
-                self.v[x] = rng.gen_range(0,nn) as u8;
+                self.v[x] = rng.gen::<u8>() & nn;
                 OpCodeNext::Next
             } ,
             // DXYN
