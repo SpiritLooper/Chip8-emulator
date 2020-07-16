@@ -2,6 +2,8 @@ extern crate minifb;
 
 use minifb::{Key, Window, WindowOptions};
 
+const FPS_RATE : u64 = 16;
+
 const W_CHIP8 : usize = 64;
 const H_CHIP8 : usize= 32;
 const PIXEL_SIZE : usize = 10;
@@ -26,7 +28,7 @@ impl GPU {
             WindowOptions::default()
         ).expect("Impossible to initialize the window graphics");
 
-        win.limit_update_rate(Some(std::time::Duration::from_millis(16u64)));
+        win.limit_update_rate(Some(std::time::Duration::from_millis(FPS_RATE)));
 
         GPU {
             buffer : vec![BLACK ; WIDTH * HEIGHT],
@@ -49,5 +51,9 @@ impl GPU {
     pub fn update_screen(&mut self) {
         self.window.update_with_buffer(&self.buffer, WIDTH, HEIGHT)
         .expect("Impossible to draw graphics");
+    }
+
+    pub fn must_continue(&self) -> bool {
+        self.window.is_open() 
     }
 } 

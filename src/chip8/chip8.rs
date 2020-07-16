@@ -29,7 +29,7 @@ impl Chip8 {
     }
 
     pub fn run(&mut self) {
-        while self.gpu.window.is_open() {
+        while self.gpu.must_continue() {
             self.gpu.update_screen();
         }
     }
