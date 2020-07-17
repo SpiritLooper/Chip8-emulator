@@ -3,6 +3,7 @@ use super::font::FONT_SET;
 use super::rom::Rom;
 use super::input::keys_pressed;
 
+use rodio::Sink;
 use rand::Rng;
 
 const SIZE : usize = 4096;
@@ -36,11 +37,17 @@ pub struct CPU {
     keypad : [bool ; 16],
     keypad_wait : bool,
     keypad_rgs : usize,
+    player_audio :  Sink,
     gpu : GPU
 }
 
 impl CPU {
     pub fn new() -> Self {
+        let device = rodio::default_output_device().unwrap();
+        let signal = rodio::source::SineWave::new(440);
+        let player = Sink::new(&device);
+        player.append(signal);
+        player.pause();
         CPU {
             memory : [ 0u8 ; SIZE ],
             v : [ 0u8 ; 16 ],
@@ -53,6 +60,7 @@ impl CPU {
             keypad : [false ; 16],
             keypad_wait : false,
             keypad_rgs : 0,
+            player_audio :  player,
             gpu : GPU::new()
         }
     }
@@ -82,6 +90,13 @@ impl CPU {
                         break;
                     }
                 }
+            }
+
+            if self.count_sound != 0 {
+                self.player_audio.play();
+                std::thread::sleep(std::time::Duration::from_millis(12));
+                self.player_audio.pause();
+                self.count_sound = 0;
             }
         }
     }
