@@ -31,8 +31,7 @@ pub struct CPU {
     pc : usize,
     count_game : u8,
     count_sound : u8,
-    gpu : GPU,
-    gpu_change : bool
+    gpu : GPU
 }
 
 impl CPU {
@@ -46,8 +45,7 @@ impl CPU {
             count_game : 0,
             count_sound : 0,
             pc : BEGIN_ADDR,
-            gpu : GPU::new(),
-            gpu_change : false
+            gpu : GPU::new()
         }
     }
 
@@ -66,10 +64,7 @@ impl CPU {
            for _ in 0 .. 4 {
               self.run_opcode(self.get_opcode());
            }
-           if self.gpu_change {
-               self.gpu.update_screen();
-               self.gpu_change = false;
-           }
+           self.gpu.update_screen();
            self.step_count();
         }
     }
@@ -276,7 +271,6 @@ impl CPU {
                 }
             }
         }
-        self.gpu_change = true;
         OpCodeNext::Next
     }
 } 
