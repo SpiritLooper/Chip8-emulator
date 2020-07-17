@@ -1,6 +1,8 @@
 use crate::chip8::gpu::*;
 use super::font::FONT_SET;
-use super::rom::Rom ;
+use super::rom::Rom;
+use super::input::keys_pressed;
+
 use rand::Rng;
 
 const SIZE : usize = 4096;
@@ -31,6 +33,9 @@ pub struct CPU {
     pc : usize,
     count_game : u8,
     count_sound : u8,
+    keypad : [bool ; 16],
+    keypad_wait : bool,
+    keypad_rgs : usize,
     gpu : GPU
 }
 
@@ -45,6 +50,9 @@ impl CPU {
             count_game : 0,
             count_sound : 0,
             pc : BEGIN_ADDR,
+            keypad : [false ; 16],
+            keypad_wait : false,
+            keypad_rgs : 0,
             gpu : GPU::new()
         }
     }
@@ -61,11 +69,20 @@ impl CPU {
 
     pub fn run(&mut self) {
         while self.gpu.must_continue() {
-           for _ in 0 .. 4 {
-              self.run_opcode(self.get_opcode());
-           }
-           self.gpu.update_screen();
-           self.step_count();
+            self.keypad = keys_pressed(&self.gpu.window);
+            if !self.keypad_wait {
+                self.run_opcode(self.get_opcode());
+                self.gpu.update_screen();
+                self.step_count();
+            } else {
+                for ( i , &key ) in self.keypad.iter().enumerate() {
+                    if key {
+                        self.keypad_wait = false;
+                        self.v[self.keypad_rgs] = i as u8;
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -201,13 +218,17 @@ impl CPU {
             // DXYN
             (0xd, _, _, _) => self.draw_sprite(x, y, n) ,
             // EX9E
-            (0xe, _, 0x9, 0xe) => unimplemented!("EX9E") ,
+            (0xe, _, 0x9, 0xe) => OpCodeNext::skip_if( self.keypad[self.v[x] as usize]  ) ,
             // EXA1
-            (0xe, _, 0xa, 0x1) => unimplemented!("EXA1") ,
+            (0xe, _, 0xa, 0x1) => OpCodeNext::skip_if( !self.keypad[self.v[x] as usize]  ) ,
             // FX07
             (0xf, _, 0x0, 0x7) => { self.v[x] = self.count_game ; OpCodeNext::Next } ,
             // FX0A
-            (0xf, _, 0x0, 0xa) => unimplemented!("FX0A") ,
+            (0xf, _, 0x0, 0xa) => {
+                self.keypad_wait = true;
+                self.keypad_rgs = x;
+                OpCodeNext::Next
+            } ,
             // FX15
             (0xf, _, 0x1, 0x5) => { self.count_game = self.v[x] ; OpCodeNext::Next } ,
             // FX18
