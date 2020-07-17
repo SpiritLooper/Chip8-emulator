@@ -1,5 +1,5 @@
 # CHIP8 Emulator in rust
-Just for practice and knowledge
+Just for practice Rust and know how an emulator is created
 ![GitHub Logo](/res/chip8.png)
 ![GitHub Logo](/res/tapeworm.png)
 
